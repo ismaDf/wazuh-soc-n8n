@@ -1,8 +1,8 @@
-# 6. Casos de uso
+# 8. Casos de uso
 
 Un **caso de uso** de SOC responde cinco preguntas: *¿qué amenaza real?, ¿con qué datos la veo?, ¿con qué lógica la detecto?, ¿qué hago cuando ocurre?, ¿cómo pruebo que funciona?* Cada ficha de este proyecto sigue esa estructura.
 
-## 6.1 Instalar las reglas personalizadas
+## 8.1 Instalar las reglas personalizadas
 
 En `wazuh-srv`:
 
@@ -19,7 +19,7 @@ sudo systemctl restart wazuh-manager
 
 Copia también la configuración centralizada de agentes ([`agent-windows.conf`](../wazuh/config/agent-windows.conf) y [`agent-linux.conf`](../wazuh/config/agent-linux.conf)) dentro de `/var/ossec/etc/shared/default/agent.conf`.
 
-## 6.2 Catálogo
+## 8.2 Catálogo
 
 | ID | Caso de uso | Endpoint | Táctica MITRE | Técnica | Nivel | Respuesta |
 |---|---|---|---|---|---|---|
@@ -32,7 +32,7 @@ Copia también la configuración centralizada de agentes ([`agent-windows.conf`]
 | [UC-07](casos-de-uso/UC-07-persistencia-linux.md) | Persistencia cron / cuentas / SSH | Linux, Red Hat | Persistence | T1053.003, T1098.004 | 12 | Aviso + FIM |
 | [UC-08](casos-de-uso/UC-08-sistema-heredado.md) | Sistema sin soporte expuesto | Windows 7 | Initial Access, Lateral Mov. | T1190, T1210 | — | Reporte semanal |
 
-## 6.3 Cobertura MITRE ATT&CK
+## 8.3 Cobertura MITRE ATT&CK
 
 ```mermaid
 flowchart LR
@@ -44,8 +44,8 @@ flowchart LR
     DE --> LM[Lateral Movement<br/>UC-08]
 ```
 
-La cadena muestra que los casos no son aislados: un atacante real suele pasar por **UC-02 → UC-04 → UC-05 → UC-06**. Al probarlos en secuencia (capítulo 7) verás en el Dashboard la historia completa de un incidente.
+La cadena muestra que los casos no son aislados: un atacante real suele pasar por **UC-02 → UC-04 → UC-05 → UC-06**. Al probarlos en secuencia (capítulo 9) verás en el Dashboard la historia completa de un incidente.
 
-## 6.4 Plantilla para nuevos casos de uso
+## 8.4 Plantilla para nuevos casos de uso
 
 Usa [`casos-de-uso/PLANTILLA.md`](casos-de-uso/PLANTILLA.md) para documentar casos adicionales con la misma estructura.

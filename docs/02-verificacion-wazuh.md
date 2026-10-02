@@ -1,8 +1,8 @@
-# 1. Verificación del despliegue actual de Wazuh
+# 2. Verificación del despliegue actual de Wazuh
 
 Antes de automatizar, confirma que la base funciona. Ejecuta todo en `wazuh-srv` salvo que se indique.
 
-## 1.1 Versión y servicios
+## 2.1 Versión y servicios
 
 ```bash
 sudo /var/ossec/bin/wazuh-control info
@@ -11,7 +11,7 @@ sudo systemctl status wazuh-manager wazuh-indexer wazuh-dashboard --no-pager
 
 Anota la versión (ej. `v4.x.x`). Este manual está escrito para **Wazuh 4.14.x**; los nombres de menú del Dashboard pueden variar ligeramente entre versiones menores.
 
-## 1.2 Agentes conectados
+## 2.2 Agentes conectados
 
 ```bash
 sudo /var/ossec/bin/agent_control -l
@@ -19,7 +19,7 @@ sudo /var/ossec/bin/agent_control -l
 
 Debes ver `ws2019`, `win7`, `lnx-01` y `rhel-01` como **Active**. Anota sus IDs (ej. `001`–`004`); los usarás en n8n y en las pruebas.
 
-## 1.3 Flujo de alertas
+## 2.3 Flujo de alertas
 
 ```bash
 sudo tail -f /var/ossec/logs/alerts/alerts.json | jq '{nivel: .rule.level, regla: .rule.id, desc: .rule.description, agente: .agent.name}'
@@ -29,7 +29,7 @@ sudo tail -f /var/ossec/logs/alerts/alerts.json | jq '{nivel: .rule.level, regla
 
 Genera un evento sencillo (por ejemplo, un `sudo` en `lnx-01`) y confirma que aparece.
 
-## 1.4 Probar las reglas con wazuh-logtest
+## 2.4 Probar las reglas con wazuh-logtest
 
 `wazuh-logtest` es tu mejor amigo para desarrollar reglas sin esperar eventos reales:
 
@@ -45,7 +45,7 @@ Oct  2 10:00:00 lnx-01 sshd[1234]: Failed password for invalid user admin from 1
 
 Verás la fase de decodificación y la regla que coincide (`rule id`, `level`).
 
-## 1.5 Acceso a la API de Wazuh
+## 2.5 Acceso a la API de Wazuh
 
 n8n usará la API. Verifica que responde:
 
@@ -65,7 +65,7 @@ En **Dashboard → Server management → Security → Users**, crea `n8n-soar` y
 
 Así, si la credencial de n8n se expone, no compromete toda la plataforma.
 
-## 1.6 Checklist
+## 2.6 Checklist
 
 - [ ] Manager, indexer y dashboard en estado `active (running)`
 - [ ] Agentes Windows y Linux en estado `Active`

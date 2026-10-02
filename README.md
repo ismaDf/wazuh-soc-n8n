@@ -48,7 +48,7 @@ flowchart LR
 
 ## Implementación rápida (resumen de comandos)
 
-En el servidor Wazuh, con n8n ya levantado ([capítulo 3](docs/03-instalacion-n8n.md)). El detalle de cada paso, la salida esperada y qué hacer si falla están en el [capítulo 4](docs/04-integracion-wazuh-n8n.md) y el [capítulo 5](docs/05-respuesta-activa.md).
+En el servidor Wazuh, con n8n ya levantado ([capítulo 5](docs/05-instalacion-n8n.md)). El detalle de cada paso, la salida esperada y qué hacer si falla están en el [capítulo 6](docs/06-integracion-wazuh-n8n.md) y el [capítulo 7](docs/07-respuesta-activa.md).
 
 ```bash
 # 1. Repositorio y variables
@@ -94,15 +94,17 @@ sudo tail -f /var/ossec/logs/integrations.log
 | # | Capítulo |
 |---|---|
 | 0 | [Arquitectura y laboratorio](docs/00-arquitectura.md) |
-| 1 | [Verificación del despliegue actual de Wazuh](docs/01-verificacion-wazuh.md) |
-| 2 | [Sysmon y telemetría EDR en Windows](docs/02-sysmon-edr.md) |
-| 3 | [Instalación de n8n con Docker](docs/03-instalacion-n8n.md) |
-| 4 | [Integración Wazuh → n8n — guía técnica paso a paso](docs/04-integracion-wazuh-n8n.md) |
-| 5 | [Respuesta activa (Wazuh + n8n) — paso a paso](docs/05-respuesta-activa.md) |
-| 6 | [Casos de uso](docs/06-casos-de-uso.md) |
-| 7 | [Pruebas, evidencias y métricas](docs/07-pruebas-y-evidencias.md) |
-| 8 | [Solución de problemas](docs/08-troubleshooting.md) |
-| 9 | [Publicar el proyecto en GitHub](docs/09-publicar-en-github.md) |
+| 2 | [Verificación del despliegue actual de Wazuh](docs/02-verificacion-wazuh.md) |
+| 4 | [EDR: Sysmon y telemetría de endpoints](docs/04-edr.md) |
+| 5 | [Instalación de n8n con Docker](docs/05-instalacion-n8n.md) |
+| 6 | [Integración Wazuh → n8n — guía técnica paso a paso](docs/06-integracion-wazuh-n8n.md) |
+| 7 | [Respuesta activa (Wazuh + n8n) — paso a paso](docs/07-respuesta-activa.md) |
+| 8 | [Casos de uso](docs/08-casos-de-uso.md) |
+| 9 | [Pruebas, evidencias y métricas](docs/09-pruebas-y-evidencias.md) |
+| 10 | [Solución de problemas](docs/10-troubleshooting.md) |
+| 11 | [Publicar el proyecto en GitHub](docs/11-publicar-en-github.md) |
+
+> Los capítulos 1 (levantamiento de VMs en VMware) y 3 (despliegue de agentes) están en preparación.
 
 ## Casos de uso
 

@@ -1,6 +1,6 @@
-# 8. Solución de problemas
+# 10. Solución de problemas
 
-## 8.1 Las alertas no llegan a n8n
+## 10.1 Las alertas no llegan a n8n
 
 | Síntoma | Revisión | Solución |
 |---|---|---|
@@ -12,14 +12,14 @@
 | Llega a n8n pero no a Telegram | Executions → nodo Telegram en rojo | `chat_id` incorrecto (los grupos son negativos) o bot no agregado al grupo |
 | Primer aviso llega, los siguientes no | Comportamiento esperado | Anti-spam: misma regla + agente + IP en 5 min. Ajusta `ventanaDedupMin` |
 
-## 8.2 Las reglas personalizadas no se disparan
+## 10.2 Las reglas personalizadas no se disparan
 
 1. Valida sintaxis: `sudo /var/ossec/bin/wazuh-analysisd -t`.
 2. Prueba con `wazuh-logtest` pegando el **JSON del evento** (cópialo de `archives.json` o de un alerta similar). En la fase 3 verás qué regla ganó.
 3. Si gana una regla oficial "hermana" en lugar de la tuya, agrega su ID a tu `<if_sid>` (ver la explicación en UC-05).
 4. Para ver eventos que **no** generan alerta, activa temporalmente `<logall_json>yes</logall_json>` en `<global>` del ossec.conf y revisa `/var/ossec/logs/archives/archives.json`. Desactívalo después: crece muy rápido.
 
-## 8.3 Active Response no bloquea
+## 10.3 Active Response no bloquea
 
 | Síntoma | Revisión |
 |---|---|
@@ -30,13 +30,13 @@
 | `remove-threat.sh` no borra | ¿`jq` instalado? ¿la ruta está en la lista permitida del script? |
 | API devuelve error en n8n | Permisos del usuario `n8n-soar` (`active-response:command`); ID de agente correcto (3 dígitos, ej. `001`) |
 
-## 8.4 Windows 7
+## 10.4 Windows 7
 
 - **El agente no se conecta:** revisa la versión de agente compatible en la documentación oficial de Wazuh y que el equipo tenga TLS 1.2 habilitado.
-- **Sysmon no instala:** esperable en versiones recientes. Deja el equipo solo con Security/System (ver capítulo 2).
+- **Sysmon no instala:** esperable en versiones recientes. Deja el equipo solo con Security/System (ver capítulo 4).
 - **`auditpol` dice que la subcategoría no existe:** el nombre depende del idioma; lista con `auditpol /list /subcategory:*`.
 
-## 8.5 n8n
+## 10.5 n8n
 
 | Problema | Solución |
 |---|---|
@@ -45,7 +45,7 @@
 | SSL error al llamar al API de Wazuh | Activa *Ignore SSL Issues* en el nodo (los JSON ya lo traen) |
 | Workflow importado sin credenciales | Normal: n8n no exporta credenciales. Selecciónalas en cada nodo |
 
-## 8.6 Comandos de diagnóstico útiles
+## 10.6 Comandos de diagnóstico útiles
 
 ```bash
 # Manager

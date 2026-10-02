@@ -1,4 +1,4 @@
-# 5. Respuesta activa (Wazuh + n8n)
+# 7. Respuesta activa (Wazuh + n8n)
 
 Este proyecto usa **dos niveles de respuesta**, como en un SOC real:
 
@@ -8,7 +8,7 @@ Este proyecto usa **dos niveles de respuesta**, como en un SOC real:
 | **Orquestado** (decisión) | n8n vía API de Wazuh | Requiere contexto (allowlist, tipo de agente, severidad combinada) | Login exitoso tras fuerza bruta → bloquear IP + escalar al analista |
 | **Humano** | Analista | Acción de alto impacto | Deshabilitar cuenta, aislar servidor, restaurar |
 
-## 5.1 Matriz de respuesta del proyecto
+## 7.1 Matriz de respuesta del proyecto
 
 | Caso | Regla(s) | Respuesta automática | Dónde se configura |
 |---|---|---|---|
@@ -20,7 +20,7 @@ Este proyecto usa **dos niveles de respuesta**, como en un SOC real:
 | UC-04 a UC-07 | 1001xx | Solo aviso: requiere validación humana | n8n |
 | UC-08 SO obsoleto | Inventario API | Aviso semanal | n8n |
 
-## 5.2 Paso a paso: comandos y respuestas en el manager
+## 7.2 Paso a paso: comandos y respuestas en el manager
 
 Puntos verificados en Wazuh 4.14 que explican la configuración:
 
@@ -91,7 +91,7 @@ sudo iptables -D INPUT -s 192.168.100.99 -j DROP; sudo iptables -D FORWARD -s 19
 
 > El nombre interno es el comando + el timeout en segundos: `firewall-drop` con `<timeout>600</timeout>` se llama `firewall-drop600`. Usa exactamente el que muestre `agent_control -L`.
 
-## 5.3 Paso a paso: `remove-threat.sh` en los agentes Linux (UC-03)
+## 7.3 Paso a paso: `remove-threat.sh` en los agentes Linux (UC-03)
 
 En `lnx-01` y en `rhel-01`, con el repositorio clonado (`git clone https://github.com/ismaDf/wazuh-soc-n8n.git`):
 
@@ -132,7 +132,7 @@ sudo tail -1 /var/ossec/logs/active-responses.log     # → "ruta fuera de la li
 ls -l /etc/hostname                                    # sigue existiendo
 ```
 
-## 5.4 Respuesta orquestada desde n8n
+## 7.4 Respuesta orquestada desde n8n
 
 El workflow 01 llama al API así (puedes probarlo a mano para entenderlo):
 
@@ -150,7 +150,7 @@ curl -s -k -X PUT "https://WAZUH_IP:55000/active-response?agents_list=003&wait_f
 
 > **Importante:** el bloqueo solicitado por API no siempre aplica el `timeout` de la configuración nativa. Trátalo como **bloqueo hasta revisión** y levántalo manualmente (5.5) al cerrar el incidente.
 
-## 5.5 Revertir un bloqueo (rollback)
+## 7.5 Revertir un bloqueo (rollback)
 
 | Sistema | Ver bloqueos | Quitar bloqueo |
 |---|---|---|
@@ -160,7 +160,7 @@ curl -s -k -X PUT "https://WAZUH_IP:55000/active-response?agents_list=003&wait_f
 
 Registro de lo ejecutado en cada agente: `/var/ossec/logs/active-responses.log` (Linux) o `C:\Program Files (x86)\ossec-agent\active-response\active-responses.log` (Windows).
 
-## 5.6 Checklist
+## 7.6 Checklist
 
 - [ ] `netsh` y `firewalld-drop` definidos como `<command>`
 - [ ] `remove-threat.sh` instalado en ambos Linux con `jq`

@@ -115,7 +115,7 @@ for _ in 1 2 3 4 5 6; do
 done
 awk -v m="$MARCA" '$0 >= m' "$WAZUH/logs/ossec.log" | grep -E "integrator" | tail -5 || true
 if awk -v m="$MARCA" '$0 >= m' "$WAZUH/logs/ossec.log" | grep -qE "integrator.*(ERROR|Unable)"; then
-    aviso "Hay errores de integratord arriba. Consulta docs/08-troubleshooting.md"
+    aviso "Hay errores de integratord arriba. Consulta docs/10-troubleshooting.md"
 fi
 
 # ---------------------------------------------------------------- 7. Conectividad
@@ -129,5 +129,5 @@ fi
 
 echo
 verde "Instalación terminada."
-echo "    Siguiente: prueba el webhook (docs/04, paso 7) y luego genera una alerta real (paso 8)."
+echo "    Siguiente: prueba el webhook (docs/06, paso 7) y luego genera una alerta real (paso 8)."
 echo "    Para revertir: sudo cp -p $BACKUP $CONF && sudo systemctl restart wazuh-manager"

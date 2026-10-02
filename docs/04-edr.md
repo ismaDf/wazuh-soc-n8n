@@ -1,4 +1,4 @@
-# 2. Sysmon y telemetría EDR en Windows
+# 4. Sysmon y telemetría EDR en Windows
 
 Wazuh por sí solo lee el registro de Seguridad de Windows. Para comportarse como **EDR** necesita visibilidad de procesos, red, registro y archivos: eso lo aporta **Sysmon**.
 
@@ -11,7 +11,7 @@ En este laboratorio hay dos endpoints Windows con capacidades distintas:
 | Auditoría avanzada (`auditpol`) | Sí | Sí |
 | Papel en el proyecto | Endpoint principal de detección | Equipo heredado: casos UC-04, UC-06 y UC-08 |
 
-## 2.1 Instalar Sysmon en `ws2019`
+## 4.1 Instalar Sysmon en `ws2019`
 
 1. Descarga Sysmon desde Microsoft Sysinternals: <https://learn.microsoft.com/sysinternals/downloads/sysmon>
 2. Descarga una configuración mantenida por la comunidad, por ejemplo la de **SwiftOnSecurity** (`sysmonconfig-export.xml`): <https://github.com/SwiftOnSecurity/sysmon-config>
@@ -26,7 +26,7 @@ Get-Service Sysmon64
 
 Intenta la instalación igual; si el instalador falla por versión de sistema, **no fuerces nada**: deja `win7` solo con el registro de Seguridad y System. Eso ya alcanza para UC-04, UC-06 y UC-08, y además es un hallazgo real que documentar ("endpoint sin telemetría EDR por obsolescencia").
 
-## 2.2 Enviar los canales a Wazuh
+## 4.2 Enviar los canales a Wazuh
 
 Usa la configuración centralizada para no editar cada máquina. En `wazuh-srv`, edita `/var/ossec/etc/shared/default/agent.conf` y agrega el contenido de [`wazuh/config/agent-windows.conf`](../wazuh/config/agent-windows.conf) (ya viene dentro de `<agent_config os="Windows">`).
 
@@ -54,10 +54,10 @@ sudo systemctl restart wazuh-manager
 Los agentes reciben la configuración en unos minutos. Para forzarlo en Windows:
 
 ```powershell
-Restart-Service -Name wazuh
+Restart-Service -Name WazuhSvc
 ```
 
-## 2.3 Habilitar la auditoría necesaria para los casos de uso
+## 4.3 Habilitar la auditoría necesaria para los casos de uso
 
 En `ws2019` y `win7` (consola como Administrador):
 
@@ -78,7 +78,7 @@ Set-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\PowerShell\Scr
 
 > En Windows 7 `auditpol` acepta los nombres de subcategoría en el idioma del sistema. Si tu Win7 está en español, usa `auditpol /list /subcategory:*` para ver los nombres exactos (ej. "Inicio de sesión").
 
-## 2.4 Verificar
+## 4.4 Verificar
 
 En el Dashboard → **Threat Hunting** (o **Discover** sobre `wazuh-alerts-*`), filtra:
 
@@ -88,7 +88,7 @@ agent.name: ws2019 and rule.groups: sysmon
 
 Abre `notepad.exe` en el servidor y deberías ver eventos de creación de proceso (Sysmon Event ID 1).
 
-## 2.5 Capacidades EDR resultantes
+## 4.5 Capacidades EDR resultantes
 
 | Capacidad EDR | Cómo se cubre |
 |---|---|

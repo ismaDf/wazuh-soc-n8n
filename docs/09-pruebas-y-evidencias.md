@@ -1,8 +1,8 @@
-# 7. Pruebas, evidencias y métricas
+# 9. Pruebas, evidencias y métricas
 
 Un proyecto de SOC se evalúa por su **evidencia**: no basta con decir que funciona, hay que mostrarlo. Este capítulo convierte tus pruebas en un informe defendible.
 
-## 7.1 Orden recomendado de pruebas
+## 9.1 Orden recomendado de pruebas
 
 Ejecútalas en este orden: las primeras validan la plataforma y las últimas construyen un incidente completo.
 
@@ -17,7 +17,7 @@ Ejecútalas en este orden: las primeras validan la plataforma y las últimas con
 
 > Entre pruebas espera ~5 minutos o cambia de equipo: n8n suprime avisos repetidos (misma regla + agente + IP) durante la ventana anti-spam.
 
-## 7.2 Escenario encadenado: "intrusión por RDP" (ws2019)
+## 9.2 Escenario encadenado: "intrusión por RDP" (ws2019)
 
 Reproduce la secuencia típica de una intrusión real, paso a paso:
 
@@ -31,9 +31,9 @@ Reproduce la secuencia típica de una intrusión real, paso a paso:
 
 Al terminar, en Threat Hunting filtra `agent.name: ws2019 and rule.groups: soc_lab` y ordena por fecha: verás la **historia completa del ataque** aunque el registro local se haya borrado. Esa captura es la pieza central del portafolio.
 
-Limpieza: `uc04-cuenta-admin.ps1 -Limpiar`, `net user soc.prueba /delete`, reactiva `netsh` y revierte bloqueos (capítulo 5.5).
+Limpieza: `uc04-cuenta-admin.ps1 -Limpiar`, `net user soc.prueba /delete`, reactiva `netsh` y revierte bloqueos (capítulo 7.5).
 
-## 7.3 Qué capturar en cada caso (carpeta `evidencias/`)
+## 9.3 Qué capturar en cada caso (carpeta `evidencias/`)
 
 Nombra los archivos `UC-XX_NN_descripcion.png`:
 
@@ -43,7 +43,7 @@ Nombra los archivos `UC-XX_NN_descripcion.png`:
 4. **Mensaje en Telegram**.
 5. **Efecto de la respuesta** (regla de firewall, archivo eliminado, `active-responses.log`).
 
-## 7.4 Matriz de resultados
+## 9.4 Matriz de resultados
 
 Completa esta tabla en [`evidencias/README.md`](../evidencias/README.md):
 
@@ -60,7 +60,7 @@ Completa esta tabla en [`evidencias/README.md`](../evidencias/README.md):
 
 Valores de referencia razonables en un lab: detección < 10 s, notificación < 5 s, contención < 15 s.
 
-## 7.5 Lista de verificación final del proyecto
+## 9.5 Lista de verificación final del proyecto
 
 - [ ] 8 casos de uso probados con evidencia
 - [ ] Escenario encadenado documentado con línea de tiempo

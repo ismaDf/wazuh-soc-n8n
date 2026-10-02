@@ -1,4 +1,4 @@
-# 4. Integración Wazuh (SIEM) → n8n (SOAR) — Guía técnica paso a paso
+# 6. Integración Wazuh (SIEM) → n8n (SOAR) — Guía técnica paso a paso
 
 Al terminar este capítulo, **cada alerta de nivel ≥ 7** de Wazuh llegará a n8n en segundos, autenticada con un token, y n8n la notificará por Telegram y podrá contener la amenaza.
 
@@ -35,7 +35,7 @@ sequenceDiagram
 | 8 | wazuh-srv / Kali | Generar una alerta real | `enviada (HTTP 200)` en integrations.log |
 | 9 | todos | Verificar la cadena completa | Tabla de puntos de control |
 
-> **Requisitos previos:** capítulo 1 (Wazuh verificado, usuario de API `n8n-soar`) y capítulo 3 (n8n corriendo en Docker y bot de Telegram creado).
+> **Requisitos previos:** capítulo 2 (Wazuh verificado, usuario de API `n8n-soar`) y capítulo 5 (n8n corriendo en Docker y bot de Telegram creado).
 
 ---
 
@@ -84,7 +84,7 @@ Abre `http://N8N_IP:5678` → menú **Credentials** (o **Overview → Credential
 | Nombre | Tipo (buscar en la lista) | Campos |
 |---|---|---|
 | `Wazuh Webhook Token` | **Header Auth** | *Name:* `X-Wazuh-Token` · *Value:* el token del paso 2 |
-| `Wazuh API` | **Basic Auth** | *User:* `n8n-soar` · *Password:* la del usuario de API (capítulo 1.5) |
+| `Wazuh API` | **Basic Auth** | *User:* `n8n-soar` · *Password:* la del usuario de API (capítulo 2.5) |
 | `Wazuh Indexer` | **Basic Auth** | *User:* `admin` (o uno de solo lectura) · *Password:* la del indexer |
 | `Telegram SOC Bot` | **Telegram API** | *Access Token:* el token de @BotFather |
 
@@ -283,7 +283,7 @@ curl -s -X POST "$N8N_URL" \
 
 **Salida esperada:** `{"message":"Workflow was started"}` y en Telegram un aviso 🔴 **[CRÍTICA] Wazuh · Regla 100112**.
 
-> La alerta de ejemplo simula un login exitoso tras fuerza bruta desde `192.168.100.50`, así que n8n **también intentará bloquear esa IP** en el agente `001`. Si `001` es tu ws2019 y esa IP es tu Kali, Kali quedará bloqueada: revierte con el comando del capítulo 5.5, o cambia `srcip` e `ipAddress` en el JSON por una IP inexistente del lab (ej. `192.168.100.99`) antes de probar.
+> La alerta de ejemplo simula un login exitoso tras fuerza bruta desde `192.168.100.50`, así que n8n **también intentará bloquear esa IP** en el agente `001`. Si `001` es tu ws2019 y esa IP es tu Kali, Kali quedará bloqueada: revierte con el comando del capítulo 7.5, o cambia `srcip` e `ipAddress` en el JSON por una IP inexistente del lab (ej. `192.168.100.99`) antes de probar.
 
 **7.3 Ejecutar el script de integración igual que lo hace Wazuh**
 
