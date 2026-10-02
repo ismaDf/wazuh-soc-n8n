@@ -1,0 +1,301 @@
+{
+  "name": "SOC 01 - Triage y respuesta de alertas Wazuh",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "wazuh-alertas",
+        "authentication": "headerAuth",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "7d049a14-e60a-4903-aa92-5ea25f8029e5",
+      "name": "Webhook Wazuh",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        300
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "",
+          "name": "Wazuh Webhook Token"
+        }
+      },
+      "webhookId": "7e32c049-2cf4-4f5b-a56d-5fce70b03560"
+    },
+    {
+      "parameters": {
+        "jsCode": "// =====================================================================\n//  CONFIGURACIÓN DEL SOC — edita solo este bloque\n// =====================================================================\nconst CFG = {\n  wazuhApi: 'https://192.168.100.10:55000',   // API del manager\n  dashboard: 'https://192.168.100.10',        // Wazuh Dashboard\n  // IPs que NUNCA se bloquean (servidor, gateway, analista, loopback)\n  allowlist: ['192.168.100.10', '192.168.100.1', '127.0.0.1', '::1'],\n  // IDs de agentes Red Hat (usan firewalld-drop en lugar de firewall-drop)\n  agentesRhel: ['004'],\n  // Reglas en las que n8n ejecuta contención adicional vía API\n  // (UC-01/UC-02 ya se bloquean de forma nativa con Active Response)\n  reglasContencion: ['100112', '40112'],\n  // Ventana anti-spam: misma regla + agente + IP no se notifica de nuevo\n  ventanaDedupMin: 5,\n  zonaHoraria: 'America/Lima',\n};\n// =====================================================================\n\nconst esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\n\nconst severidad = (n) => {\n  if (n >= 12) return { nombre: 'CRÍTICA', icono: '🔴', sla: '15 min' };\n  if (n >= 10) return { nombre: 'ALTA', icono: '🟠', sla: '1 h' };\n  if (n >= 7) return { nombre: 'MEDIA', icono: '🟡', sla: '4 h' };\n  return { nombre: 'BAJA', icono: '🔵', sla: '24 h' };\n};\n\nconst ipValida = (ip) => /^(\\d{1,3}\\.){3}\\d{1,3}$/.test(ip || '') || /^[0-9a-f:]+:[0-9a-f:]*$/i.test(ip || '');\n\nconst estado = $getWorkflowStaticData('global');\nestado.vistos = estado.vistos || {};\nconst ahora = Date.now();\n// Limpieza de entradas antiguas\nfor (const k of Object.keys(estado.vistos)) {\n  if (ahora - estado.vistos[k] > CFG.ventanaDedupMin * 60000) delete estado.vistos[k];\n}\n\nconst salida = [];\n\nfor (const item of $input.all()) {\n  // El webhook entrega la alerta en body; si se prueba con datos pegados, en la raíz\n  const a = item.json.body ?? item.json;\n  const rule = a.rule ?? {};\n  const agent = a.agent ?? {};\n  const data = a.data ?? {};\n  const win = data.win?.eventdata ?? {};\n\n  const nivel = Number(rule.level ?? 0);\n  const sev = severidad(nivel);\n  const srcip = data.srcip || win.ipAddress || '';\n  const usuario = data.dstuser || data.srcuser || win.targetUserName || win.subjectUserName || win.user || data.win?.logFileCleared?.subjectUserName || '';\n  const mitreIds = rule.mitre?.id ?? [];\n  const mitreTacticas = rule.mitre?.tactic ?? [];\n  const esWindows = Boolean(data.win) || (a.decoder?.name ?? '').includes('windows');\n\n  // Comando de bloqueo según el sistema del agente (nombre definido en ossec.conf)\n  let comandoBloqueo = 'firewall-drop';\n  if (esWindows) comandoBloqueo = 'netsh';\n  else if (CFG.agentesRhel.includes(String(agent.id))) comandoBloqueo = 'firewalld-drop';\n\n  const contener =\n    CFG.reglasContencion.includes(String(rule.id)) &&\n    ipValida(srcip) &&\n    !CFG.allowlist.includes(srcip) &&\n    agent.id && agent.id !== '000';\n\n  const claveDedup = `${rule.id}|${agent.id}|${srcip}`;\n  const duplicada = Boolean(estado.vistos[claveDedup]);\n  if (!duplicada) estado.vistos[claveDedup] = ahora;\n\n  const hora = new Date(a.timestamp ?? ahora).toLocaleString('es-PE', { timeZone: CFG.zonaHoraria });\n\n  const lineas = [\n    `${sev.icono} <b>[${sev.nombre}] Wazuh · Regla ${esc(rule.id)} (nivel ${nivel})</b>`,\n    `<b>Descripción:</b> ${esc(rule.description)}`,\n    `<b>Equipo:</b> ${esc(agent.name)} (ID ${esc(agent.id)}${agent.ip ? ' · ' + esc(agent.ip) : ''})`,\n  ];\n  if (srcip) lineas.push(`<b>IP origen:</b> <code>${esc(srcip)}</code>`);\n  if (usuario) lineas.push(`<b>Usuario:</b> ${esc(usuario)}`);\n  if (mitreIds.length) lineas.push(`<b>MITRE ATT&amp;CK:</b> ${esc(mitreIds.join(', '))}${mitreTacticas.length ? ' · ' + esc(mitreTacticas.join(', ')) : ''}`);\n  if (data.virustotal?.source?.file) lineas.push(`<b>Archivo:</b> <code>${esc(data.virustotal.source.file)}</code> (${esc(data.virustotal.positives)} motores)`);\n  if (a.syscheck?.path && !data.virustotal) lineas.push(`<b>Archivo:</b> <code>${esc(a.syscheck.path)}</code> (${esc(a.syscheck.event)})`);\n  lineas.push(`<b>Hora:</b> ${esc(hora)} · <b>SLA:</b> ${sev.sla}`);\n  lineas.push(`<b>Acción automática:</b> ${contener ? `contención solicitada (${comandoBloqueo} sobre ${esc(srcip)})` : 'solo notificación'}`);\n  lineas.push(`<b>ID alerta:</b> <code>${esc(a.id)}</code>`);\n  lineas.push(`<a href=\"${CFG.dashboard}\">Abrir Wazuh Dashboard</a>`);\n\n  salida.push({\n    json: {\n      alerta_id: a.id,\n      timestamp: a.timestamp,\n      nivel,\n      severidad: sev.nombre,\n      regla_id: String(rule.id ?? ''),\n      descripcion: rule.description,\n      grupos: rule.groups ?? [],\n      mitre: mitreIds,\n      agente: agent.name,\n      agente_id: String(agent.id ?? ''),\n      srcip,\n      usuario,\n      contener: Boolean(contener) && !duplicada,\n      comando_bloqueo: comandoBloqueo,\n      notificar: !duplicada,\n      api: CFG.wazuhApi,\n      mensaje: lineas.join('\\n'),\n    },\n  });\n}\n\nreturn salida;\n"
+      },
+      "id": "51fd8d2d-8621-44b2-a9a3-4fd3e7cc85f4",
+      "name": "Normalizar alerta",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "902e940e-8944-4d01-9a1b-3ec1bc3179f2",
+              "leftValue": "={{ $json.notificar }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "834fcd83-4e8d-4aeb-9e20-f7a24601c4d1",
+      "name": "¿Notificar?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        480,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "-100XXXXXXXXXX",
+        "text": "={{ $json.mensaje }}",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML",
+          "disable_web_page_preview": true
+        }
+      },
+      "id": "e32a5e61-e102-4f5b-9fea-959d2d561ec7",
+      "name": "Notificar al analista",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        720,
+        100
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "",
+          "name": "Telegram SOC Bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "8e7afcc8-6e25-4060-9831-8464b89ff4ca",
+              "leftValue": "={{ $json.contener }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "41397a78-088b-4c2c-9f1e-53246a0f5640",
+      "name": "¿Contener?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        480,
+        460
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.api }}/security/user/authenticate?raw=true",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "options": {
+          "allowUnauthorizedCerts": true,
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          }
+        }
+      },
+      "id": "d594d4bd-66aa-423b-b32b-27c12ec760fb",
+      "name": "Autenticar API Wazuh",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        720,
+        460
+      ],
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "",
+          "name": "Wazuh API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "={{ $('Normalizar alerta').item.json.api }}/active-response?agents_list={{ $('Normalizar alerta').item.json.agente_id }}&wait_for_complete=true",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $json.data }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ command: $('Normalizar alerta').item.json.comando_bloqueo, arguments: [], alert: { data: { srcip: $('Normalizar alerta').item.json.srcip } } }) }}",
+        "options": {
+          "allowUnauthorizedCerts": true
+        }
+      },
+      "id": "8bc2e1c4-e083-4bf4-ad9b-acf8fdf8b8e8",
+      "name": "Bloquear IP (Active Response)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        960,
+        460
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "chatId": "-100XXXXXXXXXX",
+        "text": "={{ ($json.error ? '⚠️ <b>Falló la contención</b> ' : ($json.data?.failed_items?.length ? '⚠️ <b>Contención con errores</b> ' : '🛡️ <b>Contención ejecutada</b> ')) + $('Normalizar alerta').item.json.comando_bloqueo + ' → <code>' + $('Normalizar alerta').item.json.srcip + '</code> en ' + $('Normalizar alerta').item.json.agente + ' (alerta ' + $('Normalizar alerta').item.json.alerta_id + ')' + ($json.error ? '\\n' + JSON.stringify($json.error).slice(0, 300) : '') }}",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML",
+          "disable_web_page_preview": true
+        }
+      },
+      "id": "f90dcfeb-2f21-4fcd-8dde-4202200b8148",
+      "name": "Confirmar contención",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1200,
+        460
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "",
+          "name": "Telegram SOC Bot"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook Wazuh": {
+      "main": [
+        [
+          {
+            "node": "Normalizar alerta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalizar alerta": {
+      "main": [
+        [
+          {
+            "node": "¿Notificar?",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "¿Contener?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Notificar?": {
+      "main": [
+        [
+          {
+            "node": "Notificar al analista",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Contener?": {
+      "main": [
+        [
+          {
+            "node": "Autenticar API Wazuh",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Autenticar API Wazuh": {
+      "main": [
+        [
+          {
+            "node": "Bloquear IP (Active Response)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bloquear IP (Active Response)": {
+      "main": [
+        [
+          {
+            "node": "Confirmar contención",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Lima",
+    "saveManualExecutions": true
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": false
+  }
+}

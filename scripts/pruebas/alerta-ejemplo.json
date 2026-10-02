@@ -1,0 +1,21 @@
+{
+  "timestamp": "2026-10-02T10:15:30.123-0500",
+  "id": "1759418130.1234567",
+  "rule": {
+    "level": 14,
+    "description": "UC-02: Inicio de sesión EXITOSO de administrador desde 192.168.100.50 tras fuerza bruta — posible cuenta comprometida",
+    "id": "100112",
+    "mitre": { "id": ["T1110.001", "T1078"], "tactic": ["Credential Access", "Defense Evasion", "Persistence", "Privilege Escalation", "Initial Access"], "technique": ["Password Guessing", "Valid Accounts"] },
+    "groups": ["soc_lab", "windows", "uc02", "authentication_success", "soc_critico"]
+  },
+  "agent": { "id": "001", "name": "ws2019", "ip": "192.168.100.20" },
+  "manager": { "name": "wazuh-srv" },
+  "decoder": { "name": "windows_eventchannel" },
+  "data": {
+    "win": {
+      "system": { "eventID": "4624", "computer": "ws2019" },
+      "eventdata": { "targetUserName": "administrador", "ipAddress": "192.168.100.50", "logonType": "10" }
+    }
+  },
+  "location": "EventChannel"
+}

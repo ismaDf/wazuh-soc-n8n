@@ -1,0 +1,16 @@
+# Archivos sensibles
+.env
+*.env
+!.env.example
+*passwords*.txt
+wazuh-install-files.tar
+
+# Datos de n8n
+n8n/data/
+n8n/n8n_data/
+
+# Sistema
+.DS_Store
+Thumbs.db
+*.swp
+__pycache__/

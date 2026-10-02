@@ -1,0 +1,193 @@
+<!--
+  Reglas personalizadas del proyecto — /var/ossec/etc/rules/local_rules.xml
+  Probadas contra el ruleset oficial de Wazuh 4.14.x.
+  IDs reservados para este proyecto: 100100 – 100199
+
+  Después de copiar:
+    sudo /var/ossec/bin/wazuh-analysisd -t        # valida la sintaxis
+    sudo systemctl restart wazuh-manager
+  Y prueba cada regla con: sudo /var/ossec/bin/wazuh-logtest
+
+  Reglas base del ruleset oficial que reutilizamos (no hay que crearlas):
+    5712 / 5763  sshd: fuerza bruta (usuario inexistente / contraseña fallida)
+    40112        múltiples fallos de autenticación seguidos de éxito
+    60122        Windows 4625: fallo de inicio de sesión
+    60106        Windows 4624: inicio de sesión exitoso (+ hijas 926xx remotas)
+    60109        Windows 4720: cuenta creada o habilitada
+    60154        Windows 4732: grupo Administradores modificado (nivel 12)
+    60117/63103  Windows 1102: registro de auditoría borrado
+    63104        Windows 104: registro de System u otro borrado
+    61603        Sysmon EID 1: creación de proceso
+    91802        PowerShell 4104: bloque de script (91837: contiene IEX)
+    87105        VirusTotal: archivo malicioso
+    550 / 554    FIM: archivo modificado / añadido
+-->
+
+<!-- ============================================================
+     UC-02 · Fuerza bruta y password spraying en Windows
+     ============================================================ -->
+<group name="soc_lab,windows,uc02,">
+
+  <rule id="100110" level="10" frequency="6" timeframe="120">
+    <if_matched_sid>60122</if_matched_sid>
+    <same_field>win.eventdata.ipAddress</same_field>
+    <description>UC-02: Posible fuerza bruta (RDP/SMB) contra $(win.eventdata.targetUserName) desde $(win.eventdata.ipAddress)</description>
+    <mitre>
+      <id>T1110.001</id>
+    </mitre>
+    <group>authentication_failures,soc_contener,</group>
+  </rule>
+
+  <rule id="100111" level="12" frequency="5" timeframe="300">
+    <if_matched_sid>60122</if_matched_sid>
+    <same_field>win.eventdata.ipAddress</same_field>
+    <different_field>win.eventdata.targetUserName</different_field>
+    <description>UC-02: Password spraying — varios usuarios distintos fallan desde $(win.eventdata.ipAddress)</description>
+    <mitre>
+      <id>T1110.003</id>
+    </mitre>
+    <group>authentication_failures,soc_contener,</group>
+  </rule>
+
+  <!-- 4624 remoto suele terminar en reglas hijas de 60106 (92651, 92652, 92657...),
+       por eso la regla se ancla a 60106 y a todas sus descendientes -->
+  <rule id="100112" level="14" timeframe="600">
+    <if_sid>60106,60118,60119,60194,60200,60232,67022,67024,92651,92652,92653,92656,92657,99920</if_sid>
+    <if_matched_sid>100110</if_matched_sid>
+    <same_field>win.eventdata.ipAddress</same_field>
+    <description>UC-02: Inicio de sesión EXITOSO de $(win.eventdata.targetUserName) desde $(win.eventdata.ipAddress) tras fuerza bruta — posible cuenta comprometida</description>
+    <mitre>
+      <id>T1110.001</id>
+      <id>T1078</id>
+    </mitre>
+    <group>authentication_success,soc_critico,</group>
+  </rule>
+
+</group>
+
+<!-- ============================================================
+     UC-04 · Creación de cuentas y escalamiento a Administradores
+     ============================================================ -->
+<group name="soc_lab,windows,uc04,">
+
+  <rule id="100120" level="10">
+    <if_sid>60109</if_sid>
+    <field name="win.system.eventID">^4720$</field>
+    <description>UC-04: Cuenta local creada: $(win.eventdata.targetUserName) por $(win.eventdata.subjectUserName)</description>
+    <mitre>
+      <id>T1136.001</id>
+    </mitre>
+    <group>account_created,</group>
+  </rule>
+
+  <rule id="100121" level="14" timeframe="600">
+    <if_sid>60154</if_sid>
+    <if_matched_sid>100120</if_matched_sid>
+    <same_location />
+    <description>UC-04: Cuenta creada y agregada a Administradores en menos de 10 minutos en el mismo equipo</description>
+    <mitre>
+      <id>T1136.001</id>
+      <id>T1098</id>
+    </mitre>
+    <group>soc_critico,</group>
+  </rule>
+
+</group>
+
+<!-- ============================================================
+     UC-05 · PowerShell codificado / ofuscado
+     ============================================================ -->
+<group name="soc_lab,windows,uc05,">
+
+  <!-- Sysmon EID 1: powershell con -enc / -EncodedCommand y sus abreviaturas -->
+  <!-- Anclada también a 92027 y 92057: si PowerShell lo lanza otro PowerShell,
+       esas reglas oficiales se evalúan antes que esta -->
+  <rule id="100130" level="13">
+    <if_sid>61603,92027,92057</if_sid>
+    <field name="win.eventdata.image" type="pcre2">(?i)\\(powershell|pwsh)\.exe$</field>
+    <field name="win.eventdata.commandLine" type="pcre2">(?i)\s-(e|ec|en|enc|enco|encod|encode|encoded|encodedcommand)\s+[A-Za-z0-9+/=]{20,}</field>
+    <description>UC-05: PowerShell ejecutado con comando codificado en Base64 por $(win.eventdata.user)</description>
+    <mitre>
+      <id>T1059.001</id>
+      <id>T1027</id>
+    </mitre>
+    <group>soc_critico,</group>
+  </rule>
+
+  <!-- PowerShell 4104 (solo PS 5.1+): descarga y ejecución en memoria -->
+  <!-- 91837 (oficial) captura cualquier IEX antes que esta; se ancla a ambas -->
+  <rule id="100131" level="12">
+    <if_sid>91802,91837</if_sid>
+    <field name="win.eventdata.scriptBlockText" type="pcre2">(?i)(Invoke-Expression|\bIEX\b).{0,200}(DownloadString|Invoke-WebRequest|Net\.WebClient)|(DownloadString|Net\.WebClient).{0,200}(Invoke-Expression|\bIEX\b)</field>
+    <description>UC-05: Bloque de script PowerShell con descarga y ejecución en memoria (download cradle)</description>
+    <mitre>
+      <id>T1059.001</id>
+      <id>T1105</id>
+    </mitre>
+    <group>soc_critico,</group>
+  </rule>
+
+</group>
+
+<!-- ============================================================
+     UC-06 · Borrado de registros de eventos (anti-forense)
+     ============================================================ -->
+<group name="soc_lab,windows,uc06,">
+
+  <!-- El 1102 puede caer en 60117 (proveedor Security-Auditing) o en 63103
+       (proveedor Microsoft-Windows-Eventlog, el caso habitual) -->
+  <rule id="100140" level="14">
+    <if_sid>60117,63103</if_sid>
+    <description>UC-06: Registro de Seguridad BORRADO en $(win.system.computer) por $(win.logFileCleared.subjectUserName) — posible anti-forense</description>
+    <mitre>
+      <id>T1070.001</id>
+    </mitre>
+    <group>soc_critico,</group>
+  </rule>
+
+  <rule id="100141" level="12">
+    <if_sid>63104</if_sid>
+    <description>UC-06: Registro de eventos de Windows borrado en $(win.system.computer)</description>
+    <mitre>
+      <id>T1070.001</id>
+    </mitre>
+  </rule>
+
+</group>
+
+<!-- ============================================================
+     UC-07 · Persistencia y cuentas en Linux (FIM)
+     ============================================================ -->
+<group name="soc_lab,linux,syscheck,uc07,">
+
+  <rule id="100150" level="12">
+    <if_sid>550,554</if_sid>
+    <field name="file" type="pcre2">^(/etc/crontab|/etc/cron\.d/|/var/spool/cron/)</field>
+    <description>UC-07: Modificación de tareas programadas (cron): $(file)</description>
+    <mitre>
+      <id>T1053.003</id>
+    </mitre>
+    <group>soc_critico,</group>
+  </rule>
+
+  <rule id="100151" level="12">
+    <if_sid>550</if_sid>
+    <field name="file" type="pcre2">^/etc/(passwd|shadow|group|sudoers)$|^/etc/sudoers\.d/</field>
+    <description>UC-07: Cambio en archivo de cuentas o privilegios: $(file)</description>
+    <mitre>
+      <id>T1136.001</id>
+      <id>T1548.003</id>
+    </mitre>
+  </rule>
+
+  <rule id="100152" level="12">
+    <if_sid>550,554</if_sid>
+    <field name="file" type="pcre2">/\.ssh/authorized_keys$</field>
+    <description>UC-07: Llave SSH autorizada añadida o modificada: $(file)</description>
+    <mitre>
+      <id>T1098.004</id>
+    </mitre>
+    <group>soc_critico,</group>
+  </rule>
+
+</group>

@@ -1,0 +1,136 @@
+{
+  "name": "SOC 02 - Reporte diario de alertas",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 8 * * *"
+            }
+          ]
+        }
+      },
+      "id": "b30b51ce-33cb-4df2-b667-c1c8ec8cb33f",
+      "name": "Todos los días 08:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://192.168.100.10:9200/wazuh-alerts-*/_search",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"size\": 0,\n  \"track_total_hits\": true,\n  \"query\": {\n    \"bool\": {\n      \"filter\": [\n        {\n          \"range\": {\n            \"timestamp\": {\n              \"gte\": \"now-24h\"\n            }\n          }\n        },\n        {\n          \"range\": {\n            \"rule.level\": {\n              \"gte\": 7\n            }\n          }\n        }\n      ]\n    }\n  },\n  \"aggs\": {\n    \"por_nivel\": {\n      \"range\": {\n        \"field\": \"rule.level\",\n        \"ranges\": [\n          {\n            \"key\": \"Media\",\n            \"from\": 7,\n            \"to\": 10\n          },\n          {\n            \"key\": \"Alta\",\n            \"from\": 10,\n            \"to\": 12\n          },\n          {\n            \"key\": \"Critica\",\n            \"from\": 12\n          }\n        ]\n      }\n    },\n    \"top_reglas\": {\n      \"terms\": {\n        \"field\": \"rule.id\",\n        \"size\": 10\n      },\n      \"aggs\": {\n        \"desc\": {\n          \"terms\": {\n            \"field\": \"rule.description\",\n            \"size\": 1\n          }\n        }\n      }\n    },\n    \"top_agentes\": {\n      \"terms\": {\n        \"field\": \"agent.name\",\n        \"size\": 10\n      }\n    },\n    \"top_ips\": {\n      \"terms\": {\n        \"field\": \"data.srcip\",\n        \"size\": 5\n      }\n    },\n    \"top_mitre\": {\n      \"terms\": {\n        \"field\": \"rule.mitre.technique\",\n        \"size\": 5\n      }\n    }\n  }\n}",
+        "options": {
+          "allowUnauthorizedCerts": true
+        }
+      },
+      "id": "825dc473-2611-43fb-ac7e-07bbae82f3f9",
+      "name": "Consultar Wazuh Indexer",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        240,
+        300
+      ],
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "",
+          "name": "Wazuh Indexer"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Construye el resumen diario a partir de las agregaciones del Wazuh Indexer\nconst r = $input.first().json;\nconst ag = r.aggregations ?? {};\nconst total = r.hits?.total?.value ?? 0;\nconst esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\n\nconst niveles = Object.fromEntries((ag.por_nivel?.buckets ?? []).map((b) => [b.key, b.doc_count]));\nconst lista = (buckets, fmt) => (buckets ?? []).map(fmt).join('\\n') || '  (sin datos)';\n\nconst fecha = new Date().toLocaleDateString('es-PE', { timeZone: 'America/Lima' });\n\nconst mensaje = [\n  `📊 <b>Reporte diario SOC Lab — ${fecha}</b>`,\n  `Alertas nivel ≥ 7 en las últimas 24 h: <b>${total}</b>`,\n  `🔴 Críticas: ${niveles.Critica ?? 0} · 🟠 Altas: ${niveles.Alta ?? 0} · 🟡 Medias: ${niveles.Media ?? 0}`,\n  '',\n  '<b>Top reglas</b>',\n  lista(ag.top_reglas?.buckets, (b) => `  ${esc(b.key)} — ${esc(b.desc?.buckets?.[0]?.key ?? '')} (${b.doc_count})`),\n  '',\n  '<b>Equipos con más alertas</b>',\n  lista(ag.top_agentes?.buckets, (b) => `  ${esc(b.key)}: ${b.doc_count}`),\n  '',\n  '<b>IPs origen más activas</b>',\n  lista(ag.top_ips?.buckets, (b) => `  <code>${esc(b.key)}</code>: ${b.doc_count}`),\n  '',\n  '<b>Técnicas MITRE más vistas</b>',\n  lista(ag.top_mitre?.buckets, (b) => `  ${esc(b.key)}: ${b.doc_count}`),\n].join('\\n');\n\nreturn [{ json: { mensaje, total } }];\n"
+      },
+      "id": "f4c06610-990c-4850-b2b9-38dd2dc41c19",
+      "name": "Armar reporte",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "-100XXXXXXXXXX",
+        "text": "={{ $json.mensaje }}",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML",
+          "disable_web_page_preview": true
+        }
+      },
+      "id": "496e4ad8-2cac-4fd3-9cb2-3e5f55476f2d",
+      "name": "Enviar reporte",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        720,
+        300
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "",
+          "name": "Telegram SOC Bot"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Todos los días 08:00": {
+      "main": [
+        [
+          {
+            "node": "Consultar Wazuh Indexer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Consultar Wazuh Indexer": {
+      "main": [
+        [
+          {
+            "node": "Armar reporte",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Armar reporte": {
+      "main": [
+        [
+          {
+            "node": "Enviar reporte",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Lima",
+    "saveManualExecutions": true
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": false
+  }
+}

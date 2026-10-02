@@ -1,0 +1,288 @@
+{
+  "name": "SOC 03 - Inventario de sistemas sin soporte (UC-08)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 9 * * 1"
+            }
+          ]
+        }
+      },
+      "id": "6750c852-62b3-4a05-a34f-80416e4d27e6",
+      "name": "Lunes 09:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://192.168.100.10:55000/security/user/authenticate?raw=true",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "options": {
+          "allowUnauthorizedCerts": true,
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          }
+        }
+      },
+      "id": "babdb19e-9cc4-4b5c-a7e8-cfa3c65ab0cf",
+      "name": "Autenticar API Wazuh",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        220,
+        300
+      ],
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "",
+          "name": "Wazuh API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://192.168.100.10:55000/agents?select=id,name,ip,os.name,os.version,status&limit=500",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $json.data }}"
+            }
+          ]
+        },
+        "options": {
+          "allowUnauthorizedCerts": true
+        }
+      },
+      "id": "92724fcc-6672-49f5-8c99-e037042f0404",
+      "name": "Listar agentes",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        440,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// UC-08: identifica agentes con sistemas operativos sin soporte del fabricante\n// Ajusta la lista si agregas otros sistemas al laboratorio.\nconst EOL = [\n  { patron: /windows 7/i, fin: '2020-01-14', nota: 'Windows 7: soporte extendido terminado (ESU hasta ene-2023)' },\n  { patron: /windows xp/i, fin: '2014-04-08', nota: 'Windows XP sin soporte' },\n  { patron: /windows server 2008/i, fin: '2020-01-14', nota: 'Windows Server 2008/R2 sin soporte' },\n  { patron: /windows server 2012/i, fin: '2023-10-10', nota: 'Windows Server 2012/R2 sin soporte' },\n  { patron: /centos linux.*\\b(6|7)\\b/i, fin: '2024-06-30', nota: 'CentOS 6/7 sin soporte' },\n  { patron: /red hat.*\\b(6|7)\\./i, fin: '2024-06-30', nota: 'RHEL 6/7 fuera de mantenimiento' },\n  { patron: /ubuntu.*\\b(14|16|18)\\.04/i, fin: '2023-05-31', nota: 'Ubuntu LTS fuera de soporte estándar' },\n];\n\nconst agentes = $input.first().json.data?.affected_items ?? [];\nconst salida = [];\n\nfor (const ag of agentes) {\n  const so = `${ag.os?.name ?? ''} ${ag.os?.version ?? ''}`.trim();\n  const regla = EOL.find((e) => e.patron.test(so));\n  if (regla) {\n    salida.push({ json: { id: ag.id, nombre: ag.name, ip: ag.ip, so, estado: ag.status, fin_soporte: regla.fin, nota: regla.nota } });\n  }\n}\n\n// Si no hay equipos obsoletos devolvemos un marcador para informar \"todo OK\"\nreturn salida.length ? salida : [{ json: { ninguno: true } }];\n"
+      },
+      "id": "943a8a85-8916-4476-abc5-c8756df2ea8f",
+      "name": "Detectar SO sin soporte",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "7ab9ff2d-b7eb-483e-ae4c-db6ac96dd2e9",
+              "leftValue": "={{ !$json.ninguno }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "31c09461-425e-44b4-aed0-695da5fa0dd0",
+      "name": "¿Hay equipos obsoletos?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        880,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://192.168.100.10:55000/syscollector/{{ $json.id }}/ports?limit=500",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('Autenticar API Wazuh').first().json.data }}"
+            }
+          ]
+        },
+        "options": {
+          "allowUnauthorizedCerts": true
+        }
+      },
+      "id": "70fffa46-7b3e-4750-b202-839aa65b1e60",
+      "name": "Puertos en escucha",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1100,
+        200
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Une el inventario de puertos de cada equipo obsoleto y arma el aviso\nconst RIESGO = { 445: 'SMB', 139: 'NetBIOS', 3389: 'RDP', 135: 'RPC', 23: 'Telnet', 21: 'FTP' };\nconst esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\n\nconst equipos = $('Detectar SO sin soporte').all().map((i) => i.json);\nif (equipos[0]?.ninguno) {\n  return [{ json: { mensaje: '✅ <b>UC-08 Inventario semanal:</b> no hay agentes con sistemas operativos sin soporte.' } }];\n}\n\nconst puertos = $input.all().map((i) => i.json);\nconst bloques = equipos.map((eq, idx) => {\n  const items = puertos[idx]?.data?.affected_items ?? [];\n  const expuestos = [...new Set(items\n    .filter((p) => (p.state ?? 'listening') === 'listening')\n    .map((p) => p.local?.port)\n    .filter((port) => RIESGO[port]))]\n    .map((port) => `${port}/${RIESGO[port]}`);\n  return [\n    `🖥️ <b>${esc(eq.nombre)}</b> (ID ${esc(eq.id)} · ${esc(eq.ip)}) — ${esc(eq.estado)}`,\n    `   SO: ${esc(eq.so)}`,\n    `   ${esc(eq.nota)} (desde ${eq.fin_soporte})`,\n    `   Servicios de riesgo escuchando: ${expuestos.length ? '<b>' + expuestos.join(', ') + '</b>' : 'ninguno detectado'}`,\n  ].join('\\n');\n});\n\nconst mensaje = [\n  '🟠 <b>UC-08 · Sistemas sin soporte del fabricante</b>',\n  `Equipos detectados: <b>${equipos.length}</b>`,\n  '',\n  ...bloques,\n  '',\n  '<b>Acción recomendada:</b> segmentar en VLAN aislada, bloquear SMB/RDP desde otras redes, revisar vulnerabilidades en Dashboard → Vulnerability Detection y planificar la migración.',\n].join('\\n');\n\nreturn [{ json: { mensaje } }];\n"
+      },
+      "id": "1bdfc6dc-3276-4876-91cd-cbbc3e82c3c1",
+      "name": "Armar aviso UC-08",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1320,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "-100XXXXXXXXXX",
+        "text": "={{ $json.mensaje }}",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML",
+          "disable_web_page_preview": true
+        }
+      },
+      "id": "7d580462-2039-475e-8cf9-3f668ef4c4cd",
+      "name": "Enviar aviso UC-08",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1540,
+        300
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "",
+          "name": "Telegram SOC Bot"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Lunes 09:00": {
+      "main": [
+        [
+          {
+            "node": "Autenticar API Wazuh",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Autenticar API Wazuh": {
+      "main": [
+        [
+          {
+            "node": "Listar agentes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Listar agentes": {
+      "main": [
+        [
+          {
+            "node": "Detectar SO sin soporte",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Detectar SO sin soporte": {
+      "main": [
+        [
+          {
+            "node": "¿Hay equipos obsoletos?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Hay equipos obsoletos?": {
+      "main": [
+        [
+          {
+            "node": "Puertos en escucha",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Armar aviso UC-08",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Puertos en escucha": {
+      "main": [
+        [
+          {
+            "node": "Armar aviso UC-08",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Armar aviso UC-08": {
+      "main": [
+        [
+          {
+            "node": "Enviar aviso UC-08",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Lima",
+    "saveManualExecutions": true
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": false
+  }
+}
