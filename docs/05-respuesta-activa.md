@@ -20,37 +20,117 @@ Este proyecto usa **dos niveles de respuesta**, como en un SOC real:
 | UC-04 a UC-07 | 1001xx | Solo aviso: requiere validación humana | n8n |
 | UC-08 SO obsoleto | Inventario API | Aviso semanal | n8n |
 
-## 5.2 Agregar los comandos y respuestas en el manager
+## 5.2 Paso a paso: comandos y respuestas en el manager
 
-Edita `/var/ossec/etc/ossec.conf` en `wazuh-srv` y agrega los bloques `<command>` y `<active-response>` de [`wazuh/config/manager-ossec.conf`](../wazuh/config/manager-ossec.conf).
-
-Puntos importantes verificados en Wazuh 4.14:
+Puntos verificados en Wazuh 4.14 que explican la configuración:
 
 - El `ossec.conf` por defecto define `firewall-drop`, pero **no** `netsh` ni `firewalld-drop`: hay que agregarlos (los binarios ya vienen instalados en los agentes).
 - Los scripts de bloqueo toman la IP de `data.srcip` y, en alertas de Windows, de `data.win.eventdata.ipAddress`. Por eso `netsh` funciona directamente con las reglas UC-02.
-- `location local` ejecuta la acción en el equipo que generó la alerta, que es lo correcto para bloquear al atacante en el equipo atacado.
+- `location local` ejecuta la acción en el equipo que generó la alerta: se bloquea al atacante en el equipo atacado.
+
+En `wazuh-srv`, desde la carpeta del repositorio:
+
+**Paso 1 · Respaldar y comprobar qué comandos existen ya**
 
 ```bash
-sudo systemctl restart wazuh-manager
+cd ~/wazuh-soc-n8n
+sudo cp -p /var/ossec/etc/ossec.conf /var/ossec/etc/ossec.conf.bak-$(date +%Y%m%d-%H%M%S)
+sudo grep -A1 "<command>" /var/ossec/etc/ossec.conf | grep "<name>"
 ```
 
-## 5.3 Instalar `remove-threat.sh` en los agentes Linux (UC-03)
+**Salida esperada** (por defecto): `disable-account`, `restart-wazuh`, `firewall-drop`, `host-deny`, `route-null`, `win_route-null`. Si ya aparecen `netsh`, `firewalld-drop` o `remove-threat`, borra esos `<command>` del archivo del repositorio antes del paso 2 para no duplicarlos.
 
-En `lnx-01` y `rhel-01`:
+**Paso 2 · Agregar comandos y respuestas activas**
 
 ```bash
-# Ubuntu/Debian
-sudo apt install -y jq
-# Red Hat
-sudo dnf install -y jq
+cat wazuh/config/manager-active-response.xml | sudo tee -a /var/ossec/etc/ossec.conf > /dev/null
+sudo /var/ossec/bin/wazuh-analysisd -t && echo "CONFIG OK"
+```
 
-sudo cp remove-threat.sh /var/ossec/active-response/bin/
-sudo chown root:wazuh /var/ossec/active-response/bin/remove-threat.sh
-sudo chmod 750 /var/ossec/active-response/bin/remove-threat.sh
+El archivo [`manager-active-response.xml`](../wazuh/config/manager-active-response.xml) trae, dentro de su propio `<ossec_config>`, los comandos `netsh`, `firewalld-drop`, `remove-threat` y las 4 respuestas activas de la matriz 5.1.
+
+**Paso 3 · Agregar la integración con VirusTotal (UC-03)**
+
+Crea una cuenta gratuita en <https://www.virustotal.com>, copia tu API key (perfil → *API key*) y:
+
+```bash
+export VT_KEY="pega_aqui_tu_api_key"
+sed "s/TU_API_KEY_VIRUSTOTAL/$VT_KEY/" wazuh/config/manager-virustotal.xml | sudo tee -a /var/ossec/etc/ossec.conf > /dev/null
+sudo grep -A3 "<name>virustotal</name>" /var/ossec/etc/ossec.conf
+```
+
+Comprueba que la línea `<api_key>` muestra tu clave real.
+
+**Paso 4 · Reiniciar y verificar**
+
+```bash
+sudo /var/ossec/bin/wazuh-analysisd -t && sudo systemctl restart wazuh-manager
+sleep 15
+sudo grep -iE "virustotal|active.response|ERROR" /var/ossec/logs/ossec.log | tail -8
+```
+
+**Salida esperada:** `Enabling integration for: 'virustotal'.` y ningún `ERROR` nuevo.
+
+**Paso 5 · Probar un bloqueo a mano con agent_control** (sin esperar un ataque)
+
+```bash
+# Lista las respuestas configuradas y su nombre interno
+sudo /var/ossec/bin/agent_control -L
+
+# Bloquea una IP inexistente del lab en lnx-01 (ID 003)
+sudo /var/ossec/bin/agent_control -b 192.168.100.99 -f firewall-drop600 -u 003
+```
+
+En `lnx-01` verifica y luego revierte:
+
+```bash
+sudo tail -2 /var/ossec/logs/active-responses.log
+sudo iptables -L INPUT -n | grep 192.168.100.99
+sudo iptables -D INPUT -s 192.168.100.99 -j DROP; sudo iptables -D FORWARD -s 192.168.100.99 -j DROP
+```
+
+> El nombre interno es el comando + el timeout en segundos: `firewall-drop` con `<timeout>600</timeout>` se llama `firewall-drop600`. Usa exactamente el que muestre `agent_control -L`.
+
+## 5.3 Paso a paso: `remove-threat.sh` en los agentes Linux (UC-03)
+
+En `lnx-01` y en `rhel-01`, con el repositorio clonado (`git clone https://github.com/ismaDf/wazuh-soc-n8n.git`):
+
+```bash
+# Dependencia
+sudo apt install -y jq          # Ubuntu/Debian
+sudo dnf install -y jq          # Red Hat
+
+# Instalación
+cd ~/wazuh-soc-n8n
+sudo install -m 750 -o root -g wazuh wazuh/active-response/remove-threat.sh /var/ossec/active-response/bin/remove-threat.sh
+ls -l /var/ossec/active-response/bin/remove-threat.sh
+
+# Solo Red Hat: restaurar el contexto SELinux del script
+sudo restorecon -v /var/ossec/active-response/bin/remove-threat.sh
+
 sudo systemctl restart wazuh-agent
 ```
 
-El script tiene una **lista de rutas permitidas** (`/tmp`, `Downloads`): nunca borrará archivos de sistema aunque una alerta mal formada lo pida.
+Prueba el script **sin Wazuh**, simulando la entrada que recibe:
+
+```bash
+mkdir -p /tmp/descargas-lab && echo prueba > /tmp/descargas-lab/archivo-prueba.txt
+echo '{"command":"add","parameters":{"alert":{"data":{"virustotal":{"source":{"file":"/tmp/descargas-lab/archivo-prueba.txt"}}}}}}' \
+  | sudo /var/ossec/active-response/bin/remove-threat.sh
+ls /tmp/descargas-lab
+sudo tail -1 /var/ossec/logs/active-responses.log
+```
+
+**Salida esperada:** la carpeta queda vacía y el log muestra `ELIMINADO /tmp/descargas-lab/archivo-prueba.txt sha256=...`.
+
+Prueba también la protección de rutas (no debe borrar nada fuera de la lista permitida):
+
+```bash
+echo '{"command":"add","parameters":{"alert":{"data":{"virustotal":{"source":{"file":"/etc/hostname"}}}}}}' \
+  | sudo /var/ossec/active-response/bin/remove-threat.sh
+sudo tail -1 /var/ossec/logs/active-responses.log     # → "ruta fuera de la lista permitida"
+ls -l /etc/hostname                                    # sigue existiendo
+```
 
 ## 5.4 Respuesta orquestada desde n8n
 

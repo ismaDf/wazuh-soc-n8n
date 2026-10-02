@@ -46,6 +46,34 @@ flowchart LR
 4. Notifica al analista (Telegram) y, si es **crítica y contenible**, llama a la **API de Wazuh** para bloquear la IP origen.
 5. Toda la evidencia queda en el Dashboard de Wazuh para la investigación.
 
+## Implementación rápida (resumen de comandos)
+
+En el servidor Wazuh, con n8n ya levantado ([capítulo 3](docs/03-instalacion-n8n.md)). El detalle de cada paso, la salida esperada y qué hacer si falla están en el [capítulo 4](docs/04-integracion-wazuh-n8n.md) y el [capítulo 5](docs/05-respuesta-activa.md).
+
+```bash
+# 1. Repositorio y variables
+git clone https://github.com/ismaDf/wazuh-soc-n8n.git && cd wazuh-soc-n8n
+export N8N_URL="http://192.168.100.10:5678/webhook/wazuh-alertas"
+export WAZUH_N8N_TOKEN=$(openssl rand -hex 24) && echo "$WAZUH_N8N_TOKEN"   # → credencial "Wazuh Webhook Token" en n8n
+
+# 2. Integración Wazuh → n8n (respaldo + instalación + validación + reinicio)
+sudo bash scripts/instalar/instalar-integracion-n8n.sh --url "$N8N_URL" --token "$WAZUH_N8N_TOKEN"
+
+# 3. Reglas personalizadas
+sudo install -m 660 -o wazuh -g wazuh wazuh/rules/local_rules.xml /var/ossec/etc/rules/soc_lab_rules.xml
+
+# 4. Respuesta activa
+cat wazuh/config/manager-active-response.xml | sudo tee -a /var/ossec/etc/ossec.conf > /dev/null
+
+# 5. Validar y reiniciar
+sudo /var/ossec/bin/wazuh-analysisd -t && sudo systemctl restart wazuh-manager
+
+# 6. Prueba de extremo a extremo
+curl -s -X POST "$N8N_URL" -H "Content-Type: application/json" \
+     -H "X-Wazuh-Token: $WAZUH_N8N_TOKEN" -d @scripts/pruebas/alerta-ejemplo.json
+sudo tail -f /var/ossec/logs/integrations.log
+```
+
 ## Contenido del repositorio
 
 | Ruta | Qué contiene |
@@ -55,8 +83,9 @@ flowchart LR
 | [`wazuh/rules/`](wazuh/rules/) | Reglas personalizadas (`local_rules.xml`) |
 | [`wazuh/integrations/`](wazuh/integrations/) | Script de integración Wazuh → n8n |
 | [`wazuh/active-response/`](wazuh/active-response/) | Scripts de respuesta activa |
-| [`wazuh/config/`](wazuh/config/) | Fragmentos de `ossec.conf` (manager y agentes) |
+| [`wazuh/config/`](wazuh/config/) | Bloques listos para agregar a `ossec.conf` (respuesta activa, VirusTotal) y `agent.conf` (Windows y Linux) |
 | [`n8n/`](n8n/) | `docker-compose.yml` y workflows importables |
+| [`scripts/instalar/`](scripts/instalar/) | Instalador de la integración Wazuh → n8n (con respaldo y validación) |
 | [`scripts/pruebas/`](scripts/pruebas/) | Pruebas controladas para validar cada caso de uso |
 | [`evidencias/`](evidencias/) | Capturas y resultados de tus pruebas |
 
@@ -68,8 +97,8 @@ flowchart LR
 | 1 | [Verificación del despliegue actual de Wazuh](docs/01-verificacion-wazuh.md) |
 | 2 | [Sysmon y telemetría EDR en Windows](docs/02-sysmon-edr.md) |
 | 3 | [Instalación de n8n con Docker](docs/03-instalacion-n8n.md) |
-| 4 | [Integración Wazuh → n8n](docs/04-integracion-wazuh-n8n.md) |
-| 5 | [Respuesta activa (Wazuh + n8n)](docs/05-respuesta-activa.md) |
+| 4 | [Integración Wazuh → n8n — guía técnica paso a paso](docs/04-integracion-wazuh-n8n.md) |
+| 5 | [Respuesta activa (Wazuh + n8n) — paso a paso](docs/05-respuesta-activa.md) |
 | 6 | [Casos de uso](docs/06-casos-de-uso.md) |
 | 7 | [Pruebas, evidencias y métricas](docs/07-pruebas-y-evidencias.md) |
 | 8 | [Solución de problemas](docs/08-troubleshooting.md) |
