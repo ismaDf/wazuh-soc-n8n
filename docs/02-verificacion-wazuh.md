@@ -17,7 +17,7 @@ Anota la versión (ej. `v4.x.x`). Este manual está escrito para **Wazuh 4.14.x*
 sudo /var/ossec/bin/agent_control -l
 ```
 
-Debes ver `ws2019`, `win7`, `lnx-01` y `rhel-01` como **Active**. Anota sus IDs (ej. `001`–`004`); los usarás en n8n y en las pruebas.
+Si los clientes ya tienen agente, deben aparecer `ws2019`, `win7`, `lnx-01` y `rhel-01` como **Active**; anota sus IDs (ej. `001`–`004`). Si todavía no los instalaste, aquí solo verás el manager (`000`): los agentes se despliegan en el [capítulo 3](03-despliegue-agentes.md).
 
 ## 2.3 Flujo de alertas
 
@@ -68,7 +68,7 @@ Así, si la credencial de n8n se expone, no compromete toda la plataforma.
 ## 2.6 Checklist
 
 - [ ] Manager, indexer y dashboard en estado `active (running)`
-- [ ] Agentes Windows y Linux en estado `Active`
+- [ ] Agentes en estado `Active` (o pendientes para el capítulo 3)
 - [ ] `alerts.json` recibe eventos
 - [ ] La API responde con token
 - [ ] Usuario `n8n-soar` creado con permisos mínimos

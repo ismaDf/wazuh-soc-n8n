@@ -17,7 +17,7 @@ sudo systemctl restart wazuh-manager
 
 > Si ya tenías reglas en `local_rules.xml`, **no lo sobrescribas**: copia el archivo como `/var/ossec/etc/rules/soc_lab_rules.xml`.
 
-Copia también la configuración centralizada de agentes ([`agent-windows.conf`](../wazuh/config/agent-windows.conf) y [`agent-linux.conf`](../wazuh/config/agent-linux.conf)) dentro de `/var/ossec/etc/shared/default/agent.conf`.
+La configuración de los agentes ([`agent-windows.conf`](../wazuh/config/agent-windows.conf) y [`agent-linux.conf`](../wazuh/config/agent-linux.conf)) se publica por grupos en el [capítulo 4, paso 1](04-edr.md).
 
 ## 8.2 Catálogo
 

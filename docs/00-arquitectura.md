@@ -42,9 +42,9 @@ Edita esta tabla con los valores reales de tus VMs. **En todo el manual se usan 
 | Endpoint | Telemetría | Respuesta activa | Limitaciones |
 |---|---|---|---|
 | Windows Server 2019 | Security, System, Sysmon, PowerShell/Operational | `netsh` (bloqueo de IP) | Ninguna relevante |
-| Windows 7 | Security, System; Sysmon solo si la versión instalada lo soporta | `netsh` | PowerShell 2.0 (sin evento 4104); sin parches; revisa la versión mínima de agente Wazuh y Sysmon compatibles |
-| Linux (Ubuntu/Debian) | auth.log, syslog, FIM, auditd opcional | `firewall-drop` (iptables) | — |
-| Red Hat | /var/log/secure, FIM, auditd | `firewalld-drop` | SELinux puede bloquear scripts personalizados (ver troubleshooting) |
+| Windows 7 | Security (incl. 4688 con línea de comandos), System | `netsh` | Sin Sysmon (la versión actual no lo soporta); PowerShell 2.0 sin evento 4104; sin parches. El agente Wazuh sí es compatible |
+| Linux (Ubuntu/Debian) | auth.log, syslog, auditd (comandos root), FIM whodata | `firewall-drop` (iptables) | — |
+| Red Hat | /var/log/secure, auditd (comandos root), FIM whodata | `firewalld-drop` | SELinux puede bloquear scripts personalizados (ver troubleshooting) |
 
 ## 0.5 Modelo de severidad SOC
 

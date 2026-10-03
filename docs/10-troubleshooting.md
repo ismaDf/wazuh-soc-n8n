@@ -33,8 +33,9 @@
 ## 10.4 Windows 7
 
 - **El agente no se conecta:** revisa la versión de agente compatible en la documentación oficial de Wazuh y que el equipo tenga TLS 1.2 habilitado.
-- **Sysmon no instala:** esperable en versiones recientes. Deja el equipo solo con Security/System (ver capítulo 4).
-- **`auditpol` dice que la subcategoría no existe:** el nombre depende del idioma; lista con `auditpol /list /subcategory:*`.
+- **Sysmon no instala:** esperable: la versión actual solo soporta oficialmente Windows Server 2019+ y Windows 11. En `win7` la telemetría de procesos viene del evento 4688 con línea de comandos (capítulo 4, paso 3).
+- **`auditpol` dice que la subcategoría no existe:** usa `configurar-auditoria-windows.bat`, que trabaja con GUID y no depende del idioma. Para listar las subcategorías con su GUID: `auditpol /list /subcategory:* /v`.
+- **El 4688 no trae línea de comandos:** falta la actualización KB3004375 (`wmic qfe get HotFixID | findstr KB3004375`).
 
 ## 10.5 n8n
 

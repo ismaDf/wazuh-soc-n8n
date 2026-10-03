@@ -85,7 +85,7 @@ sudo tail -f /var/ossec/logs/integrations.log
 | [`wazuh/active-response/`](wazuh/active-response/) | Scripts de respuesta activa |
 | [`wazuh/config/`](wazuh/config/) | Bloques listos para agregar a `ossec.conf` (respuesta activa, VirusTotal) y `agent.conf` (Windows y Linux) |
 | [`n8n/`](n8n/) | `docker-compose.yml` y workflows importables |
-| [`scripts/instalar/`](scripts/instalar/) | Instalador de la integración Wazuh → n8n (con respaldo y validación) |
+| [`scripts/instalar/`](scripts/instalar/) | Instaladores: agente Linux y Windows, Sysmon, auditoría de Windows, auditd y la integración Wazuh → n8n |
 | [`scripts/pruebas/`](scripts/pruebas/) | Pruebas controladas para validar cada caso de uso |
 | [`evidencias/`](evidencias/) | Capturas y resultados de tus pruebas |
 
@@ -94,8 +94,10 @@ sudo tail -f /var/ossec/logs/integrations.log
 | # | Capítulo |
 |---|---|
 | 0 | [Arquitectura y laboratorio](docs/00-arquitectura.md) |
+| 1 | [Levantamiento del laboratorio en VMware — paso a paso](docs/01-laboratorio-vmware.md) |
 | 2 | [Verificación del despliegue actual de Wazuh](docs/02-verificacion-wazuh.md) |
-| 4 | [EDR: Sysmon y telemetría de endpoints](docs/04-edr.md) |
+| 3 | [Despliegue de agentes Wazuh en los clientes — paso a paso](docs/03-despliegue-agentes.md) |
+| 4 | [EDR: Sysmon, auditoría de Windows, auditd y FIM whodata — paso a paso](docs/04-edr.md) |
 | 5 | [Instalación de n8n con Docker](docs/05-instalacion-n8n.md) |
 | 6 | [Integración Wazuh → n8n — guía técnica paso a paso](docs/06-integracion-wazuh-n8n.md) |
 | 7 | [Respuesta activa (Wazuh + n8n) — paso a paso](docs/07-respuesta-activa.md) |
@@ -104,7 +106,7 @@ sudo tail -f /var/ossec/logs/integrations.log
 | 10 | [Solución de problemas](docs/10-troubleshooting.md) |
 | 11 | [Publicar el proyecto en GitHub](docs/11-publicar-en-github.md) |
 
-> Los capítulos 1 (levantamiento de VMs en VMware) y 3 (despliegue de agentes) están en preparación.
+> El servidor Wazuh ya debe estar instalado: este manual parte de un manager 4.14 funcionando y lo verifica en el capítulo 2.
 
 ## Casos de uso
 
